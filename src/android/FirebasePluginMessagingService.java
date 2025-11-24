@@ -31,12 +31,18 @@ import com.google.firebase.crashlytics.FirebaseCrashlytics;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Map;
 import java.util.Random;
+import java.util.ArrayList;
+import java.util.List;
 
 public class FirebasePluginMessagingService extends FirebaseMessagingService {
 
@@ -218,15 +224,19 @@ public class FirebasePluginMessagingService extends FirebaseMessagingService {
 
             if (!TextUtils.isEmpty(body) || !TextUtils.isEmpty(title) || (data != null && !data.isEmpty())) {
                 boolean showNotification = (FirebasePlugin.inBackground() || !FirebasePlugin.hasNotificationsCallback() || foregroundNotification) && (!TextUtils.isEmpty(body) || !TextUtils.isEmpty(title));
-                sendMessage(remoteMessage, data, messageType, id, title, body, bodyHtml, showNotification, sound, vibrate, light, color, icon, channelId, priority, visibility, image, imageType);
+                
+                // Parse action buttons from data payload
+                List<NotificationAction> actions = parseActions(data);
+                
+                sendMessage(remoteMessage, data, messageType, id, title, body, bodyHtml, showNotification, sound, vibrate, light, color, icon, channelId, priority, visibility, image, imageType, actions);
             }
         }catch (Exception e){
             FirebasePlugin.handleExceptionWithoutContext(e);
         }
     }
 
-    private void sendMessage(RemoteMessage remoteMessage, Map<String, String> data, String messageType, String id, String title, String body, String bodyHtml, boolean showNotification, String sound, String vibrate, String light, String color, String icon, String channelId, String priority, String visibility, String image, String imageType) {
-        Log.d(TAG, "sendMessage(): messageType="+messageType+"; showNotification="+showNotification+"; id="+id+"; title="+title+"; body="+body+"; sound="+sound+"; vibrate="+vibrate+"; light="+light+"; color="+color+"; icon="+icon+"; channel="+channelId+"; data="+data.toString());
+    private void sendMessage(RemoteMessage remoteMessage, Map<String, String> data, String messageType, String id, String title, String body, String bodyHtml, boolean showNotification, String sound, String vibrate, String light, String color, String icon, String channelId, String priority, String visibility, String image, String imageType, List<NotificationAction> actions) {
+        Log.d(TAG, "sendMessage(): messageType="+messageType+"; showNotification="+showNotification+"; id="+id+"; title="+title+"; body="+body+"; sound="+sound+"; vibrate="+vibrate+"; light="+light+"; color="+color+"; icon="+icon+"; channel="+channelId+"; actions="+(actions != null ? actions.size() : 0)+"; data="+data.toString());
         Bundle bundle = new Bundle();
         for (String key : data.keySet()) {
             bundle.putString(key, data.get(key));
@@ -251,6 +261,23 @@ public class FirebasePluginMessagingService extends FirebaseMessagingService {
         this.putKVInBundle("collapse_key", remoteMessage.getCollapseKey(), bundle);
         this.putKVInBundle("sent_time", String.valueOf(remoteMessage.getSentTime()), bundle);
         this.putKVInBundle("ttl", String.valueOf(remoteMessage.getTtl()), bundle);
+        
+        // Store actions in bundle for JavaScript
+        if (actions != null && !actions.isEmpty()) {
+            try {
+                JSONArray actionsJson = new JSONArray();
+                for (NotificationAction action : actions) {
+                    JSONObject actionJson = new JSONObject();
+                    actionJson.put("id", action.id);
+                    actionJson.put("title", action.title);
+                    actionJson.put("icon", action.icon);
+                    actionsJson.put(actionJson);
+                }
+                bundle.putString("actions", actionsJson.toString());
+            } catch (JSONException e) {
+                Log.e(TAG, "Error serializing actions", e);
+            }
+        }
 
         if (showNotification) {
 
@@ -424,6 +451,11 @@ public class FirebasePluginMessagingService extends FirebaseMessagingService {
             Log.d(TAG, "Priority: " + iPriority);
             notificationBuilder.setPriority(iPriority);
 
+            // Action Buttons
+            if (actions != null && !actions.isEmpty()) {
+                addActionButtons(notificationBuilder, actions, bundle, id);
+            }
+
             // Build notification
             Notification notification = notificationBuilder.build();
 
@@ -475,6 +507,110 @@ public class FirebasePluginMessagingService extends FirebaseMessagingService {
     private void putKVInBundle(String k, String v, Bundle b){
         if(v != null && !b.containsKey(k)){
             b.putString(k, v);
+        }
+    }
+
+    /**
+     * Helper class to store notification action data
+     */
+    private static class NotificationAction {
+        String id;
+        String title;
+        String icon;
+
+        NotificationAction(String id, String title, String icon) {
+            this.id = id;
+            this.title = title;
+            this.icon = icon;
+        }
+    }
+
+    /**
+     * Parse action buttons from the push payload data
+     * Expected format: data.actions = [{"id":"accept","title":"Accept","icon":"ic_accept"},{"id":"reject","title":"Reject","icon":"ic_reject"}]
+     */
+    private List<NotificationAction> parseActions(Map<String, String> data) {
+        List<NotificationAction> actions = new ArrayList<>();
+        
+        if (data == null || !data.containsKey("actions")) {
+            return actions;
+        }
+        
+        String actionsJson = data.get("actions");
+        if (actionsJson == null || actionsJson.isEmpty()) {
+            return actions;
+        }
+        
+        try {
+            JSONArray actionsArray = new JSONArray(actionsJson);
+            Log.d(TAG, "Parsing " + actionsArray.length() + " action buttons");
+            
+            for (int i = 0; i < actionsArray.length(); i++) {
+                JSONObject actionObj = actionsArray.getJSONObject(i);
+                String id = actionObj.optString("id", null);
+                String title = actionObj.optString("title", null);
+                String icon = actionObj.optString("icon", null);
+                
+                if (id != null && title != null) {
+                    actions.add(new NotificationAction(id, title, icon));
+                    Log.d(TAG, "Added action: id=" + id + ", title=" + title + ", icon=" + icon);
+                } else {
+                    Log.w(TAG, "Skipping action with missing id or title");
+                }
+            }
+        } catch (JSONException e) {
+            Log.e(TAG, "Error parsing actions JSON", e);
+        }
+        
+        return actions;
+    }
+
+    /**
+     * Add action buttons to the notification
+     * Compatible with Android 13+ (API 33+) using FLAG_IMMUTABLE
+     */
+    private void addActionButtons(NotificationCompat.Builder notificationBuilder, 
+                                   List<NotificationAction> actions, 
+                                   Bundle originalBundle, 
+                                   String notificationId) {
+        
+        // Determine the correct PendingIntent flags for Android 13+
+        final int flag = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M 
+            ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE 
+            : PendingIntent.FLAG_UPDATE_CURRENT;
+
+        for (NotificationAction action : actions) {
+            Intent actionIntent = new Intent(this, FirebaseActionReceiver.class);
+            actionIntent.setAction(FirebaseActionReceiver.ACTION_CLICK);
+            
+            // Copy all original notification data to the action intent
+            Bundle actionBundle = new Bundle(originalBundle);
+            actionBundle.putString("action", action.id);
+            actionBundle.putInt("notificationId", notificationId.hashCode());
+            actionIntent.putExtras(actionBundle);
+
+            // Create unique request code to ensure each action gets its own PendingIntent
+            int requestCode = (notificationId + "_" + action.id).hashCode();
+            
+            PendingIntent actionPendingIntent = PendingIntent.getBroadcast(
+                this,
+                requestCode,
+                actionIntent,
+                flag
+            );
+
+            // Get icon resource if specified
+            int iconResId = 0;
+            if (action.icon != null && !action.icon.isEmpty()) {
+                iconResId = getResources().getIdentifier(action.icon, "drawable", getPackageName());
+            }
+
+            // Add the action to the notification
+            NotificationCompat.Action.Builder actionBuilder = 
+                new NotificationCompat.Action.Builder(iconResId, action.title, actionPendingIntent);
+            notificationBuilder.addAction(actionBuilder.build());
+            
+            Log.d(TAG, "Added notification action: " + action.title + " (" + action.id + ")");
         }
     }
 }

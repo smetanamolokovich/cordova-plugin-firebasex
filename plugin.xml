@@ -58,6 +58,11 @@
 				</intent-filter>
 			</service>
 			<receiver android:name="org.apache.cordova.firebase.OnNotificationOpenReceiver"/>
+			<receiver android:name="org.apache.cordova.firebase.FirebaseActionReceiver" android:exported="false">
+				<intent-filter>
+					<action android:name="org.apache.cordova.firebase.ACTION_CLICK" />
+				</intent-filter>
+			</receiver>
 			<activity android:name="org.apache.cordova.firebase.OnNotificationReceiverActivity" android:noHistory="true" android:excludeFromRecents="true" android:taskAffinity="" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:exported="true" />
 			<meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/accent" />
 			<meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="@string/default_notification_channel_id"/>
@@ -78,6 +83,7 @@
 		<source-file src="src/android/FirebasePluginMessagingService.java" target-dir="src/org/apache/cordova/firebase" />
 		<source-file src="src/android/FirebasePluginMessageReceiver.java" target-dir="src/org/apache/cordova/firebase" />
 		<source-file src="src/android/FirebasePluginMessageReceiverManager.java" target-dir="src/org/apache/cordova/firebase" />
+		<source-file src="src/android/FirebaseActionReceiver.java" target-dir="src/org/apache/cordova/firebase" />
 		<source-file src="src/android/JavaScriptException.java" target-dir="src/org/apache/cordova/firebase"/>
 
 		<framework src="src/android/build.gradle" custom="true" type="gradleReference" />
