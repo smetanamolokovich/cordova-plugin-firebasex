@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import androidx.core.app.RemoteInput;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -15,11 +16,13 @@ import java.util.Set;
 /**
  * BroadcastReceiver that handles notification action button clicks.
  * Compatible with Android 13+ and cordova-android 14.
+ * Supports inline reply actions.
  */
 public class FirebaseActionReceiver extends BroadcastReceiver {
 
     private static final String TAG = "FirebasePlugin";
     public static final String ACTION_CLICK = "org.apache.cordova.firebase.ACTION_CLICK";
+    public static final String KEY_TEXT_REPLY = "key_text_reply";
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -42,6 +45,13 @@ public class FirebaseActionReceiver extends BroadcastReceiver {
 
             Log.d(TAG, "FirebaseActionReceiver: Action=" + action + ", NotificationId=" + notificationId);
 
+            // Extract inline reply text if present
+            CharSequence replyText = null;
+            Bundle remoteInput = RemoteInput.getResultsFromIntent(intent);
+            if (remoteInput != null) {
+                replyText = remoteInput.getCharSequence(KEY_TEXT_REPLY);
+            }
+
             // Dismiss the notification
             if (notificationId != -1) {
                 NotificationManager notificationManager = 
@@ -55,6 +65,12 @@ public class FirebaseActionReceiver extends BroadcastReceiver {
             Bundle resultBundle = new Bundle();
             resultBundle.putString("action", action);
             resultBundle.putString("tap", "action");
+            
+            // Add reply text if present
+            if (replyText != null) {
+                resultBundle.putString("replyText", replyText.toString());
+                Log.d(TAG, "FirebaseActionReceiver: Reply text=" + replyText);
+            }
 
             // Copy all original notification data
             for (String key : extras.keySet()) {

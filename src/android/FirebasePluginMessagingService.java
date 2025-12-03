@@ -13,6 +13,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.RemoteInput;
 import android.util.Log;
 import android.app.Notification;
 import android.text.TextUtils;
@@ -517,11 +518,15 @@ public class FirebasePluginMessagingService extends FirebaseMessagingService {
         String id;
         String title;
         String icon;
+        boolean requiresInput;
+        String inputPlaceholder;
 
-        NotificationAction(String id, String title, String icon) {
+        NotificationAction(String id, String title, String icon, boolean requiresInput, String inputPlaceholder) {
             this.id = id;
             this.title = title;
             this.icon = icon;
+            this.requiresInput = requiresInput;
+            this.inputPlaceholder = inputPlaceholder;
         }
     }
 
@@ -550,10 +555,12 @@ public class FirebasePluginMessagingService extends FirebaseMessagingService {
                 String id = actionObj.optString("id", null);
                 String title = actionObj.optString("title", null);
                 String icon = actionObj.optString("icon", null);
+                boolean requiresInput = actionObj.optBoolean("requiresInput", false);
+                String inputPlaceholder = actionObj.optString("inputPlaceholder", null);
                 
                 if (id != null && title != null) {
-                    actions.add(new NotificationAction(id, title, icon));
-                    Log.d(TAG, "Added action: id=" + id + ", title=" + title + ", icon=" + icon);
+                    actions.add(new NotificationAction(id, title, icon, requiresInput, inputPlaceholder));
+                    Log.d(TAG, "Added action: id=" + id + ", title=" + title + ", icon=" + icon + ", requiresInput=" + requiresInput);
                 } else {
                     Log.w(TAG, "Skipping action with missing id or title");
                 }
@@ -608,6 +615,17 @@ public class FirebasePluginMessagingService extends FirebaseMessagingService {
             // Add the action to the notification
             NotificationCompat.Action.Builder actionBuilder = 
                 new NotificationCompat.Action.Builder(iconResId, action.title, actionPendingIntent);
+            
+            // Add inline reply if action requires input
+            if (action.requiresInput) {
+                String replyLabel = action.inputPlaceholder != null ? action.inputPlaceholder : "Enter your reply...";
+                RemoteInput remoteInput = new RemoteInput.Builder(FirebaseActionReceiver.KEY_TEXT_REPLY)
+                    .setLabel(replyLabel)
+                    .build();
+                actionBuilder.addRemoteInput(remoteInput);
+                Log.d(TAG, "Added inline reply to action: " + action.title);
+            }
+            
             notificationBuilder.addAction(actionBuilder.build());
             
             Log.d(TAG, "Added notification action: " + action.title + " (" + action.id + ")");
