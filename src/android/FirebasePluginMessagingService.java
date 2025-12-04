@@ -580,11 +580,6 @@ public class FirebasePluginMessagingService extends FirebaseMessagingService {
                                    List<NotificationAction> actions, 
                                    Bundle originalBundle, 
                                    String notificationId) {
-        
-        // Determine the correct PendingIntent flags for Android 13+
-        final int flag = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M 
-            ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE 
-            : PendingIntent.FLAG_UPDATE_CURRENT;
 
         for (NotificationAction action : actions) {
             Intent actionIntent = new Intent(this, FirebaseActionReceiver.class);
@@ -598,6 +593,20 @@ public class FirebasePluginMessagingService extends FirebaseMessagingService {
 
             // Create unique request code to ensure each action gets its own PendingIntent
             int requestCode = (notificationId + "_" + action.id).hashCode();
+            
+            // Determine flags: MUTABLE for actions with RemoteInput, IMMUTABLE for others
+            int flag;
+            if (action.requiresInput) {
+                // RemoteInput requires MUTABLE PendingIntent
+                flag = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                    ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE
+                    : PendingIntent.FLAG_UPDATE_CURRENT;
+            } else {
+                // Regular actions use IMMUTABLE for Android 13+ security
+                flag = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+                    ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+                    : PendingIntent.FLAG_UPDATE_CURRENT;
+            }
             
             PendingIntent actionPendingIntent = PendingIntent.getBroadcast(
                 this,
