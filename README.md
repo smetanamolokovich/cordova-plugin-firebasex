@@ -1234,6 +1234,131 @@ Otherwise it will not be delivered as outlined in [this Firebase documentation](
 
 <a name="messagetypefootnote3">3</a>: If the app is not running/has been task-killed when the data message arrives, it will never be received by the app.
 
+### Android Notification Action Buttons
+
+Android 7.0+ supports action buttons on notifications, allowing users to interact with notifications directly without opening the app.
+
+This plugin supports two types of action buttons:
+- **Simple action buttons**: Trigger an action when tapped
+- **Inline reply buttons**: Allow users to enter text directly from the notification (requires Android 7.0+)
+
+#### Configuring Action Buttons
+
+Action buttons are defined in the `data.actions` field as a JSON array. Each action must have:
+- `id` (string, required): Unique identifier for the action
+- `title` (string, required): Button text displayed to the user
+- `icon` (string, optional): Name of drawable resource for the button icon
+- `requiresInput` (boolean, optional): Set to `true` to enable inline text reply
+- `inputPlaceholder` (string, optional): Placeholder text for the inline reply input field
+
+Example data message with action buttons:
+
+```json
+{
+    "data": {
+        "notification_foreground": "true",
+        "notification_title": "New message from John",
+        "notification_body": "Hey, how are you?",
+        "url": "/messages/123",
+        "messageId": "msg_123",
+        "senderId": "john_id",
+        "actions": "[{\"id\":\"reply\",\"title\":\"Reply\",\"requiresInput\":true,\"inputPlaceholder\":\"Type your reply...\"},{\"id\":\"mark_read\",\"title\":\"Mark as read\"}]"
+    },
+    "android": {
+        "priority": "high"
+    }
+}
+```
+
+**Important**: Use data-only messages (without `notification` key) to ensure action buttons work when the app is in the background.
+
+#### Handling Action Button Taps
+
+When the user taps an action button, the `onMessageReceived` callback is invoked with:
+- `data.tap`: Set to `"action"`
+- `data.action`: The action `id` that was tapped
+- `data.replyText`: (Optional) The text entered by the user for inline reply actions
+
+Example JavaScript handler:
+
+```javascript
+FirebasePlugin.onMessageReceived(function(message) {
+    if (message.tap === "action") {
+        console.log("Action button tapped:", message.action);
+        
+        if (message.action === "reply" && message.replyText) {
+            // User replied via inline reply
+            console.log("Reply text:", message.replyText);
+            sendReplyToServer(message.messageId, message.replyText);
+        } else if (message.action === "mark_read") {
+            // User tapped "Mark as read"
+            markMessageAsRead(message.messageId);
+        }
+    }
+});
+```
+
+#### Backend Example (Node.js with Firebase Admin SDK)
+
+```javascript
+import admin from 'firebase-admin';
+
+interface NotificationAction {
+    id: string;
+    title: string;
+    icon?: string;
+    requiresInput?: boolean;
+    inputPlaceholder?: string;
+}
+
+async function sendNotificationWithActions(
+    token: string,
+    title: string,
+    body: string,
+    actions: NotificationAction[]
+) {
+    const message = {
+        token: token,
+        data: {
+            notification_foreground: 'true',
+            notification_title: title,
+            notification_body: body,
+            actions: JSON.stringify(actions)
+        },
+        android: {
+            priority: 'high' as const
+        }
+    };
+
+    await admin.messaging().send(message);
+}
+
+// Usage: Send notification with inline reply
+await sendNotificationWithActions(
+    userToken,
+    'New message from John',
+    'Hey, how are you?',
+    [
+        {
+            id: 'reply',
+            title: 'Reply',
+            requiresInput: true,
+            inputPlaceholder: 'Type your reply...'
+        },
+        {
+            id: 'mark_read',
+            title: 'Mark as read'
+        }
+    ]
+);
+```
+
+**Notes**:
+- Action buttons are only supported on Android
+- Maximum of 3 action buttons per notification is recommended
+- Inline reply requires Android 7.0+ (API 24+)
+- When using inline reply, the app does not need to be opened - the reply is sent directly to `onMessageReceived`
+
 ## iOS notifications
 
 Notifications on iOS can be customised to specify the sound and badge number that's displayed when the notification arrives.
