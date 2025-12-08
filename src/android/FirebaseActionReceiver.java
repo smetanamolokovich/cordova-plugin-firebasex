@@ -93,10 +93,13 @@ public class FirebaseActionReceiver extends BroadcastReceiver {
 
     /**
      * Sends the action button result to JavaScript via FirebasePlugin.sendMessage
+     * When app is in background, message will be queued and delivered when app opens
      */
     private void sendActionToJavaScript(Bundle bundle, Context context) {
         try {
-            // Use the existing sendMessage method to deliver the action to JavaScript
+            // Use the existing sendMessage method which handles both foreground and background
+            // In background: adds to notificationStack and delivers when app opens
+            // In foreground: delivers immediately to JavaScript
             FirebasePlugin.sendMessage(bundle, context);
             Log.d(TAG, "FirebaseActionReceiver: Action sent to JavaScript");
         } catch (Exception e) {

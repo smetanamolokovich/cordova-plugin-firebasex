@@ -145,9 +145,13 @@ public class FirebasePluginMessagingService extends FirebaseMessagingService {
             boolean foregroundNotification = false;
 
             Map<String, String> data = remoteMessage.getData();
+            
+            // Check if message contains action buttons - if so, we need to handle it as data message
+            // even if notification block is present, so we can create custom notification with actions
+            boolean hasActions = data != null && data.containsKey("actions");
 
-            if (remoteMessage.getNotification() != null) {
-                // Notification message payload
+            if (remoteMessage.getNotification() != null && !hasActions) {
+                // Notification message payload (only if no actions)
                 Log.i(TAG, "Received message: notification");
                 messageType = "notification";
                 id = remoteMessage.getMessageId();
@@ -176,7 +180,7 @@ public class FirebasePluginMessagingService extends FirebaseMessagingService {
                     body = String.format(getResources().getString(bodyId), (Object[])bodyLocArgs);
                 }
             }else{
-                Log.i(TAG, "Received message: data");
+                Log.i(TAG, "Received message: data" + (hasActions ? " (with actions)" : ""));
                 messageType = "data";
             }
 
@@ -224,10 +228,22 @@ public class FirebasePluginMessagingService extends FirebaseMessagingService {
 
 
             if (!TextUtils.isEmpty(body) || !TextUtils.isEmpty(title) || (data != null && !data.isEmpty())) {
-                boolean showNotification = (FirebasePlugin.inBackground() || !FirebasePlugin.hasNotificationsCallback() || foregroundNotification) && (!TextUtils.isEmpty(body) || !TextUtils.isEmpty(title));
-                
                 // Parse action buttons from data payload
                 List<NotificationAction> actions = parseActions(data);
+                
+                // Update hasActions based on parsed actions (not just presence of "actions" key)
+                hasActions = actions != null && !actions.isEmpty();
+                
+                // Show notification if:
+                // - App is in background OR
+                // - No notification callback registered OR
+                // - notification_foreground is set OR
+                // - Message has action buttons (need to show buttons to user)
+                boolean showNotification = (FirebasePlugin.inBackground() || !FirebasePlugin.hasNotificationsCallback() || foregroundNotification || hasActions) && (!TextUtils.isEmpty(body) || !TextUtils.isEmpty(title));
+                
+                if (hasActions) {
+                    Log.d(TAG, "Message has " + actions.size() + " action buttons");
+                }
                 
                 sendMessage(remoteMessage, data, messageType, id, title, body, bodyHtml, showNotification, sound, vibrate, light, color, icon, channelId, priority, visibility, image, imageType, actions);
             }
