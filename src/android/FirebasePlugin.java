@@ -279,6 +279,20 @@ public class FirebasePlugin extends CordovaPlugin {
                     defaultChannelId = getStringResource("default_notification_channel_id");
                     defaultChannelName = getStringResource("default_notification_channel_name");
                     createDefaultChannel();
+                    
+                    // Start foreground service to keep app alive for push notifications with action buttons
+                    try {
+                        Intent serviceIntent = new Intent(applicationContext, FirebaseForegroundService.class);
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            applicationContext.startForegroundService(serviceIntent);
+                        } else {
+                            applicationContext.startService(serviceIntent);
+                        }
+                        Log.d(TAG, "FirebaseForegroundService started");
+                    } catch (Exception e) {
+                        Log.e(TAG, "Failed to start FirebaseForegroundService", e);
+                    }
+                    
                     pluginInitialized = true;
                     // If the webview has already reported page finished, flush any pending global JS
                     if (onPageFinished) {
