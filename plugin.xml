@@ -51,6 +51,7 @@
 			<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 			<uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 			<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+			<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 			<!--<uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove"/>-->
 		</config-file>
 		<config-file target="AndroidManifest.xml" parent="application">
@@ -61,10 +62,17 @@
 				</intent-filter>
 			</service>
 			<service android:name="org.apache.cordova.firebase.FirebaseForegroundService" android:foregroundServiceType="dataSync" android:exported="false" />
+			<service android:name="org.apache.cordova.firebase.FirebaseHttpService" android:exported="false" />
 			<receiver android:name="org.apache.cordova.firebase.OnNotificationOpenReceiver"/>
 			<receiver android:name="org.apache.cordova.firebase.FirebaseActionReceiver" android:exported="false">
 				<intent-filter>
 					<action android:name="org.apache.cordova.firebase.ACTION_CLICK" />
+				</intent-filter>
+			</receiver>
+			<receiver android:name="org.apache.cordova.firebase.FirebaseServiceRestarter" android:enabled="true" android:exported="true">
+				<intent-filter>
+					<action android:name="android.intent.action.BOOT_COMPLETED" />
+					<action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
 				</intent-filter>
 			</receiver>
 			<activity android:name="org.apache.cordova.firebase.OnNotificationReceiverActivity" android:noHistory="true" android:excludeFromRecents="true" android:taskAffinity="" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:exported="true" />
@@ -89,6 +97,8 @@
 		<source-file src="src/android/FirebasePluginMessageReceiverManager.java" target-dir="src/org/apache/cordova/firebase" />
 		<source-file src="src/android/FirebaseActionReceiver.java" target-dir="src/org/apache/cordova/firebase" />
 		<source-file src="src/android/FirebaseForegroundService.java" target-dir="src/org/apache/cordova/firebase" />
+		<source-file src="src/android/FirebaseHttpService.java" target-dir="src/org/apache/cordova/firebase" />
+		<source-file src="src/android/FirebaseServiceRestarter.java" target-dir="src/org/apache/cordova/firebase" />
 		<source-file src="src/android/JavaScriptException.java" target-dir="src/org/apache/cordova/firebase"/>
 
 		<framework src="src/android/build.gradle" custom="true" type="gradleReference" />

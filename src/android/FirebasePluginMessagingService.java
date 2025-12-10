@@ -243,6 +243,22 @@ public class FirebasePluginMessagingService extends FirebaseMessagingService {
                 
                 if (hasActions) {
                     Log.d(TAG, "Message has " + actions.size() + " action buttons");
+                    
+                    // Start foreground service temporarily to keep process alive for action button handling
+                    // Service will auto-stop after 3 seconds to minimize notification visibility
+                    if (FirebasePlugin.inBackground() || !FirebasePlugin.hasNotificationsCallback()) {
+                        try {
+                            Intent serviceIntent = new Intent(this, FirebaseForegroundService.class);
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                startForegroundService(serviceIntent);
+                            } else {
+                                startService(serviceIntent);
+                            }
+                            Log.d(TAG, "Started temporary foreground service for action button handling");
+                        } catch (Exception e) {
+                            Log.e(TAG, "Failed to start foreground service", e);
+                        }
+                    }
                 }
                 
                 sendMessage(remoteMessage, data, messageType, id, title, body, bodyHtml, showNotification, sound, vibrate, light, color, icon, channelId, priority, visibility, image, imageType, actions);
@@ -316,6 +332,24 @@ public class FirebasePluginMessagingService extends FirebaseMessagingService {
             // Channel
             if(channelId == null || !FirebasePlugin.channelExists(channelId)){
                 channelId = FirebasePlugin.defaultChannelId;
+            }
+            // Fallback if app was killed and defaultChannelId not initialized
+            if(channelId == null) {
+                channelId = "fcm_default_channel";
+                // Create default channel if it doesn't exist
+                if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
+                    NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                    if(notificationManager != null && notificationManager.getNotificationChannel(channelId) == null) {
+                        NotificationChannel channel = new NotificationChannel(
+                            channelId,
+                            "Push notifications",
+                            NotificationManager.IMPORTANCE_HIGH
+                        );
+                        channel.setDescription("Notifications from server");
+                        notificationManager.createNotificationChannel(channel);
+                        Log.d(TAG, "Created fallback notification channel: " + channelId);
+                    }
+                }
             }
             if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
                 Log.d(TAG, "Channel ID: "+channelId);
