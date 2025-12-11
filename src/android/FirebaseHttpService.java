@@ -51,6 +51,30 @@ public class FirebaseHttpService extends Service {
     }
 
     private void sendHttpRequest(Bundle bundle) {
+        String action = bundle.getString("action");
+        
+        Log.d(TAG, "FirebaseHttpService: Processing action: " + action);
+        
+        if (action == null) {
+            Log.w(TAG, "FirebaseHttpService: Action is null");
+            return;
+        }
+        
+        // Handle different action types
+        if (action.equals("reply")) {
+            sendReplyMessage(bundle);
+        } else if (action.equals("mark_read")) {
+            markMessageAsRead(bundle);
+        } else if (action.equals("dismiss")) {
+            // Just dismiss - notification already closed in FirebaseActionReceiver
+            Log.d(TAG, "FirebaseHttpService: Dismiss action - nothing to do");
+            showToast("Dismissed");
+        } else {
+            Log.w(TAG, "FirebaseHttpService: Unknown action: " + action);
+        }
+    }
+    
+    private void sendReplyMessage(Bundle bundle) {
         HttpURLConnection connection = null;
         try {
             String apiUrl = bundle.getString("apiUrl");
@@ -61,7 +85,7 @@ public class FirebaseHttpService extends Service {
                 return;
             }
 
-            Log.d(TAG, "FirebaseHttpService: Sending HTTP request to " + apiUrl);
+            Log.d(TAG, "FirebaseHttpService: Sending reply to " + apiUrl);
             
             // Build message data
             JSONObject messageData = new JSONObject();
@@ -110,11 +134,75 @@ public class FirebaseHttpService extends Service {
                 reader.close();
                 
                 Log.d(TAG, "FirebaseHttpService: Response: " + response.toString());
-                Log.d(TAG, "FirebaseHttpService: Message sent successfully");
+                Log.d(TAG, "FirebaseHttpService: Reply sent successfully");
                 showToast("Reply sent");
             } else {
                 Log.e(TAG, "FirebaseHttpService: Server returned error: " + responseCode);
                 showToast("Failed to send reply");
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "FirebaseHttpService: HTTP request failed", e);
+            showToast("Error: " + e.getMessage());
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
+    
+    private void markMessageAsRead(Bundle bundle) {
+        HttpURLConnection connection = null;
+        try {
+            String apiUrl = bundle.getString("apiUrl");
+            String authToken = bundle.getString("authToken");
+            String messageId = bundle.getString("messageId");
+            
+            if (apiUrl == null || authToken == null) {
+                Log.w(TAG, "FirebaseHttpService: Missing apiUrl or authToken");
+                return;
+            }
+            
+            if (messageId == null) {
+                Log.w(TAG, "FirebaseHttpService: Missing messageId for mark_read action");
+                showToast("Cannot mark as read - missing message ID");
+                return;
+            }
+
+            Log.d(TAG, "FirebaseHttpService: Marking message as read: " + messageId);
+            
+            // Build payload
+            JSONObject payload = new JSONObject();
+            payload.put("messageId", messageId);
+            
+            Log.d(TAG, "FirebaseHttpService: Request payload: " + payload.toString());
+            
+            // Setup HTTP connection
+            URL url = new URL(apiUrl + "api/messages/mark-read");
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setRequestProperty("Content-Type", "application/json");
+            connection.setRequestProperty("X-Auth-Token", authToken);
+            connection.setDoOutput(true);
+            connection.setConnectTimeout(10000);
+            connection.setReadTimeout(10000);
+            
+            // Send request
+            OutputStream os = connection.getOutputStream();
+            os.write(payload.toString().getBytes("UTF-8"));
+            os.flush();
+            os.close();
+            
+            // Get response
+            int responseCode = connection.getResponseCode();
+            Log.d(TAG, "FirebaseHttpService: HTTP response code: " + responseCode);
+            
+            if (responseCode >= 200 && responseCode < 300) {
+                Log.d(TAG, "FirebaseHttpService: Message marked as read successfully");
+                showToast("Marked as read");
+            } else {
+                Log.e(TAG, "FirebaseHttpService: Server returned error: " + responseCode);
+                showToast("Failed to mark as read");
             }
             
         } catch (Exception e) {

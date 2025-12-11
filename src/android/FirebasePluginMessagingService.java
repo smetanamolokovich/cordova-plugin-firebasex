@@ -49,8 +49,8 @@ public class FirebasePluginMessagingService extends FirebaseMessagingService {
 
     private static final String TAG = "FirebasePlugin";
 
-    static final String defaultSmallIconName = "notification_icon";
-    static final String defaultLargeIconName = "notification_icon_large";
+    static final String defaultSmallIconName = "ic_notification";
+    static final String defaultLargeIconName = "ic_notification_large";
 
     static final String imageTypeCircle = "circle";
     static final String imageTypeBigPicture = "big_picture";
@@ -435,8 +435,16 @@ public class FirebasePluginMessagingService extends FirebaseMessagingService {
                 Log.d(TAG, "Small icon: default="+defaultSmallIconName);
                 notificationBuilder.setSmallIcon(defaultSmallIconResID);
             } else {
-                Log.d(TAG, "Small icon: application");
-                notificationBuilder.setSmallIcon(getApplicationInfo().icon);
+                // Fallback: use ic_launcher_foreground if available (typically monochrome-friendly)
+                // or android.R.drawable.ic_dialog_info as last resort
+                int fallbackIcon = getResources().getIdentifier("ic_launcher_foreground", "drawable", getPackageName());
+                if (fallbackIcon != 0) {
+                    Log.d(TAG, "Small icon: ic_launcher_foreground");
+                    notificationBuilder.setSmallIcon(fallbackIcon);
+                } else {
+                    Log.d(TAG, "Small icon: android default");
+                    notificationBuilder.setSmallIcon(android.R.drawable.ic_dialog_info);
+                }
             }
 
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
