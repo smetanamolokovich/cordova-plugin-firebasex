@@ -133,22 +133,12 @@ public class FirebaseForegroundService extends Service {
                 Log.d(TAG, "FirebaseForegroundService: Added extras to launch intent");
             }
             
-            // Use PendingIntent to bypass Android 10+ background activity launch restrictions
-            int flags = PendingIntent.FLAG_UPDATE_CURRENT;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                flags |= PendingIntent.FLAG_IMMUTABLE;
-            }
-            
-            PendingIntent pendingIntent = PendingIntent.getActivity(
-                this,
-                0,
-                launchIntent,
-                flags
-            );
-            
-            Log.d(TAG, "FirebaseForegroundService: Sending PendingIntent to launch activity");
-            pendingIntent.send();
-            Log.d(TAG, "FirebaseForegroundService: PendingIntent sent successfully");
+            // Start activity directly from foreground service
+            // We have the necessary privileges because we're running as a foreground service
+            // with the notification service allowlist
+            Log.d(TAG, "FirebaseForegroundService: Starting activity to bring app to foreground");
+            startActivity(launchIntent);
+            Log.d(TAG, "FirebaseForegroundService: Activity started successfully");
         } catch (Exception e) {
             Log.e(TAG, "FirebaseForegroundService: Failed to launch main activity: " + e.getMessage(), e);
         }

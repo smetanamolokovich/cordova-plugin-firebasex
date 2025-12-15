@@ -640,38 +640,50 @@ public class FirebasePluginMessagingService extends FirebaseMessagingService {
                                    String notificationId) {
 
         for (NotificationAction action : actions) {
-            Intent actionIntent = new Intent(this, FirebaseActionReceiver.class);
-            actionIntent.setAction(FirebaseActionReceiver.ACTION_CLICK);
-            
-            // Copy all original notification data to the action intent
             Bundle actionBundle = new Bundle(originalBundle);
             actionBundle.putString("action", action.id);
             actionBundle.putInt("notificationId", notificationId.hashCode());
-            actionIntent.putExtras(actionBundle);
 
             // Create unique request code to ensure each action gets its own PendingIntent
             int requestCode = (notificationId + "_" + action.id).hashCode();
             
-            // Determine flags: MUTABLE for actions with RemoteInput, IMMUTABLE for others
-            int flag;
+            PendingIntent actionPendingIntent;
+            
+            // For reply action with inline input, use BroadcastReceiver
             if (action.requiresInput) {
+                Intent actionIntent = new Intent(this, FirebaseActionReceiver.class);
+                actionIntent.setAction(FirebaseActionReceiver.ACTION_CLICK);
+                actionIntent.putExtras(actionBundle);
+                
                 // RemoteInput requires MUTABLE PendingIntent
-                flag = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                int flag = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
                     ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE
                     : PendingIntent.FLAG_UPDATE_CURRENT;
+                
+                actionPendingIntent = PendingIntent.getBroadcast(
+                    this,
+                    requestCode,
+                    actionIntent,
+                    flag
+                );
             } else {
+                // For regular actions, use Activity to properly bring app to foreground
+                Intent actionIntent = new Intent(this, OnNotificationReceiverActivity.class);
+                actionIntent.putExtras(actionBundle);
+                actionIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                
                 // Regular actions use IMMUTABLE for Android 13+ security
-                flag = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+                int flag = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
                     ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
                     : PendingIntent.FLAG_UPDATE_CURRENT;
+                
+                actionPendingIntent = PendingIntent.getActivity(
+                    this,
+                    requestCode,
+                    actionIntent,
+                    flag
+                );
             }
-            
-            PendingIntent actionPendingIntent = PendingIntent.getBroadcast(
-                this,
-                requestCode,
-                actionIntent,
-                flag
-            );
 
             // Get icon resource if specified
             int iconResId = 0;

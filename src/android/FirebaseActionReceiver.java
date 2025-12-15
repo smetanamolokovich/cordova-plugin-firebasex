@@ -1,9 +1,12 @@
 package org.apache.cordova.firebase;
 
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import androidx.core.app.RemoteInput;
@@ -86,6 +89,34 @@ public class FirebaseActionReceiver extends BroadcastReceiver {
             // Send the action result to JavaScript - force immediate delivery
             sendActionToJavaScript(resultBundle, context);
             
+            // Open the app after handling action (except for reply)
+            if (!action.equals("reply")) {
+                Log.d(TAG, "FirebaseActionReceiver: Launching main activity");
+                
+                try {
+                    // Get the launch intent for the app
+                    String packageName = context.getPackageName();
+                    Intent launchIntent = context.getPackageManager().getLaunchIntentForPackage(packageName);
+                    
+                    if (launchIntent != null) {
+                        // Critical: Add FLAG_ACTIVITY_NEW_TASK to allow starting from non-Activity context
+                        // The notification click gives us a temporary allowlist to start activities
+                        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        launchIntent.putExtras(resultBundle);
+                        
+                        // Start the activity directly - we have allowlist from notification click
+                        context.startActivity(launchIntent);
+                        Log.d(TAG, "FirebaseActionReceiver: Activity started");
+                    } else {
+                        Log.e(TAG, "FirebaseActionReceiver: Cannot get launch intent");
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "FirebaseActionReceiver: Failed to launch activity", e);
+                }
+            } else {
+                Log.d(TAG, "FirebaseActionReceiver: Reply action - not opening app");
+            }
+            
             // If app is killed (no callback registered), send via HTTP service
             if (!FirebasePlugin.hasNotificationsCallback()) {
                 Log.d(TAG, "FirebaseActionReceiver: No callback registered, starting HTTP service");
@@ -107,6 +138,7 @@ public class FirebaseActionReceiver extends BroadcastReceiver {
             FirebasePlugin.handleExceptionWithoutContext(e);
         }
     }
+
 
     /**
      * Sends the action button result to JavaScript via FirebasePlugin.sendMessage
