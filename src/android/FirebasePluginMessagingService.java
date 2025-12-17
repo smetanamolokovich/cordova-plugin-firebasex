@@ -649,16 +649,16 @@ public class FirebasePluginMessagingService extends FirebaseMessagingService {
             
             PendingIntent actionPendingIntent;
             
-            // For reply action with inline input, use BroadcastReceiver
-            if (action.requiresInput) {
+            // For reply and mark_read actions, use BroadcastReceiver (don't open app)
+            if (action.requiresInput || action.id.equals("reply") || action.id.equals("mark_read") || action.id.equals("dismiss")) {
                 Intent actionIntent = new Intent(this, FirebaseActionReceiver.class);
                 actionIntent.setAction(FirebaseActionReceiver.ACTION_CLICK);
                 actionIntent.putExtras(actionBundle);
                 
                 // RemoteInput requires MUTABLE PendingIntent
-                int flag = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                int flag = (action.requiresInput || Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
                     ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE
-                    : PendingIntent.FLAG_UPDATE_CURRENT;
+                    : PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE;
                 
                 actionPendingIntent = PendingIntent.getBroadcast(
                     this,
@@ -667,7 +667,7 @@ public class FirebasePluginMessagingService extends FirebaseMessagingService {
                     flag
                 );
             } else {
-                // For regular actions, use Activity to properly bring app to foreground
+                // For other actions (view_commodity, dismiss), use Activity to bring app to foreground
                 Intent actionIntent = new Intent(this, OnNotificationReceiverActivity.class);
                 actionIntent.putExtras(actionBundle);
                 actionIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);

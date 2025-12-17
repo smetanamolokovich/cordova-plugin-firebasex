@@ -89,8 +89,8 @@ public class FirebaseActionReceiver extends BroadcastReceiver {
             // Send the action result to JavaScript - force immediate delivery
             sendActionToJavaScript(resultBundle, context);
             
-            // Open the app after handling action (except for reply)
-            if (!action.equals("reply")) {
+            // Open the app only for actions that require it (not reply, mark_read or dismiss)
+            if (!action.equals("reply") && !action.equals("mark_read") && !action.equals("dismiss")) {
                 Log.d(TAG, "FirebaseActionReceiver: Launching main activity");
                 
                 try {
@@ -114,7 +114,7 @@ public class FirebaseActionReceiver extends BroadcastReceiver {
                     Log.e(TAG, "FirebaseActionReceiver: Failed to launch activity", e);
                 }
             } else {
-                Log.d(TAG, "FirebaseActionReceiver: Reply action - not opening app");
+                Log.d(TAG, "FirebaseActionReceiver: " + action + " action - not opening app");
             }
             
             // If app is killed (no callback registered), send via HTTP service
