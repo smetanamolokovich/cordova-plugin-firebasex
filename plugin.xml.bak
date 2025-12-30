@@ -217,5 +217,5 @@
 
 	</platform>
 
-<!-- 	<hook type="after_prepare" src="scripts/after_prepare.js" /> -->
+	<hook type="after_prepare" src="scripts/after_prepare.js" />
 </plugin>
