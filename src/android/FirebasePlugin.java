@@ -279,6 +279,10 @@ public class FirebasePlugin extends CordovaPlugin {
                     defaultChannelId = getStringResource("default_notification_channel_id");
                     defaultChannelName = getStringResource("default_notification_channel_name");
                     createDefaultChannel();
+                    
+                    // Foreground service started only when FCM arrives to keep process alive
+                    // for action button handling. See FirebasePluginMessagingService.
+                    
                     pluginInitialized = true;
                     // If the webview has already reported page finished, flush any pending global JS
                     if (onPageFinished) {
@@ -689,19 +693,29 @@ public class FirebasePlugin extends CordovaPlugin {
     }
 
     private void onMessageReceived(final CallbackContext callbackContext) {
+        Log.d(TAG, "onMessageReceived() - callback registered, sending pending notifications");
         FirebasePlugin.notificationCallbackContext = callbackContext;
         sendPendingNotifications();
     }
 
     private synchronized void sendPendingNotifications() {
-        if (FirebasePlugin.notificationStack != null) {
+        if (FirebasePlugin.notificationStack != null && !FirebasePlugin.notificationStack.isEmpty()) {
+            Log.d(TAG, "sendPendingNotifications() - sending " + FirebasePlugin.notificationStack.size() + " pending notifications");
             this.cordova.getThreadPool().execute(new Runnable() {
                 public void run() {
                     try {
                         for (Bundle bundle : FirebasePlugin.notificationStack) {
+                            // Skip action events - they were already handled by HTTP service
+                            if (bundle.getBoolean("_isActionEvent", false)) {
+                                Log.d(TAG, "sendPendingNotifications() - skipping action event (already processed via HTTP)");
+                                continue;
+                            }
+                            
+                            Log.d(TAG, "sendPendingNotifications() - sending bundle: " + bundle.keySet());
                             FirebasePlugin.sendMessage(bundle, applicationContext);
                         }
                         FirebasePlugin.notificationStack.clear();
+                        Log.d(TAG, "sendPendingNotifications() - all pending notifications sent");
                     } catch (Exception e) {
                         handleExceptionWithoutContext(e);
                     }
@@ -745,12 +759,21 @@ public class FirebasePlugin extends CordovaPlugin {
     }
 
     public static void sendMessage(Bundle bundle, Context context) {
-        if (!FirebasePlugin.hasNotificationsCallback() || (inBackground && !immediateMessagePayloadDelivery)) {
+        // Check if this is an action event that should be delivered immediately
+        boolean isActionEvent = bundle != null && bundle.getBoolean("_isActionEvent", false);
+        
+        Log.d(TAG, "sendMessage() called - inBackground=" + inBackground + ", hasCallback=" + hasNotificationsCallback() + ", immediateDelivery=" + immediateMessagePayloadDelivery + ", isActionEvent=" + isActionEvent);
+        
+        // Queue the message if:
+        // - No callback registered, OR
+        // - App is in background AND not immediate delivery AND not an action event
+        if (!FirebasePlugin.hasNotificationsCallback() || (inBackground && !immediateMessagePayloadDelivery && !isActionEvent)) {
             String packageName = context.getPackageName();
             if (FirebasePlugin.notificationStack == null) {
                 FirebasePlugin.notificationStack = new ArrayList<Bundle>();
             }
             notificationStack.add(bundle);
+            Log.d(TAG, "sendMessage() - Message added to notificationStack (size=" + notificationStack.size() + ")");
 
             return;
         }
@@ -773,6 +796,7 @@ public class FirebasePlugin extends CordovaPlugin {
                     }
                 }
                 FirebasePlugin.instance.sendPluginResultAndKeepCallback(json, callbackContext);
+                Log.d(TAG, "sendMessage() - Delivered immediately to JavaScript");
             }
         }
     }
