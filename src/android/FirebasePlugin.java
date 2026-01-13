@@ -2996,6 +2996,10 @@ public class FirebasePlugin extends CordovaPlugin {
             Log.d(TAG, "Channel " + id + " - badge=" + badge);
             channel.setShowBadge(badge);
 
+            // Bypass Do Not Disturb - important for Lenovo and other Chinese manufacturers
+            channel.setBypassDnd(true);
+            Log.d(TAG, "Channel " + id + " - bypassDnd=true");
+
             int usage = options.optInt("usage", AudioAttributes.USAGE_NOTIFICATION_RINGTONE);
             Log.d(TAG, "Channel " + id + " - usage=" + usage);
 

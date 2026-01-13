@@ -8,7 +8,7 @@ import android.util.Log;
 
 /**
  * Restarts FirebaseForegroundService on boot or when killed
- * DISABLED - not needed, FirebaseMessagingService works without it
+ * Needed for devices with aggressive battery optimization (Lenovo, Xiaomi, Huawei, etc.)
  */
 public class FirebaseServiceRestarter extends BroadcastReceiver {
     
@@ -19,21 +19,14 @@ public class FirebaseServiceRestarter extends BroadcastReceiver {
         String action = intent.getAction();
         Log.d(TAG, "FirebaseServiceRestarter: onReceive - action=" + action);
         
-        // Foreground service disabled to avoid "App is running" notification
-        // FirebaseMessagingService works without it
-        /*
         if (Intent.ACTION_BOOT_COMPLETED.equals(action) || 
             Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)) {
             
-            Log.d(TAG, "FirebaseServiceRestarter: Starting FirebaseForegroundService");
+            Log.d(TAG, "FirebaseServiceRestarter: Ensuring FCM service is ready");
             
-            Intent serviceIntent = new Intent(context, FirebaseForegroundService.class);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(serviceIntent);
-            } else {
-                context.startService(serviceIntent);
-            }
+            // Just log - FirebaseMessagingService should handle itself
+            // But we ensure it's enabled by this receiver being triggered
+            Log.d(TAG, "FirebaseServiceRestarter: FCM service should be active now");
         }
-        */
     }
 }

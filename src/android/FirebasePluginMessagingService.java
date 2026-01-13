@@ -346,6 +346,11 @@ public class FirebasePluginMessagingService extends FirebaseMessagingService {
                             NotificationManager.IMPORTANCE_HIGH
                         );
                         channel.setDescription("Notifications from server");
+                        channel.enableLights(true);
+                        channel.enableVibration(true);
+                        channel.setShowBadge(true);
+                        channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+                        channel.setBypassDnd(true); // Bypass Do Not Disturb mode
                         notificationManager.createNotificationChannel(channel);
                         Log.d(TAG, "Created fallback notification channel: " + channelId);
                     }
@@ -360,7 +365,9 @@ public class FirebasePluginMessagingService extends FirebaseMessagingService {
             notificationBuilder
                     .setContentTitle(title)
                     .setAutoCancel(true)
-                    .setContentIntent(pendingIntent);
+                    .setContentIntent(pendingIntent)
+                    .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                    .setDefaults(Notification.DEFAULT_ALL);
 
             if(bodyHtml != null) {
                 notificationBuilder
