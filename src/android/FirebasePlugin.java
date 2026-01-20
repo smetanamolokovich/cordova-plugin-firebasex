@@ -274,21 +274,6 @@ public class FirebasePlugin extends CordovaPlugin {
                             extras.putString("tap", "background");
                             notificationStack.add(extras);
                             Log.d(TAG, "Notification message found on init: " + extras.toString());
-                            
-                            // If message has action buttons, show custom notification immediately
-                            // This handles the case when app was killed and system notification was shown
-                            // Now we replace it with custom notification that has action buttons
-                            if (extras.containsKey("actions")) {
-                                Log.d(TAG, "Message has actions - will show custom notification with buttons");
-                                try {
-                                    // Re-send through messaging service to show proper notification with buttons
-                                    Intent serviceIntent = new Intent(applicationContext, FirebasePluginMessagingService.class);
-                                    serviceIntent.putExtras(extras);
-                                    applicationContext.startService(serviceIntent);
-                                } catch (Exception e) {
-                                    Log.e(TAG, "Failed to re-trigger notification with actions", e);
-                                }
-                            }
                         }
                     }
                     defaultChannelId = getStringResource("default_notification_channel_id");
