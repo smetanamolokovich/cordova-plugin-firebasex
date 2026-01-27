@@ -89,6 +89,7 @@
 			<meta-data android:name="google_analytics_default_allow_ad_personalization_signals" android:value="$GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_PERSONALIZATION_SIGNALS" />
 		</config-file>
 		<resource-file src="src/android/cordova-plugin-firebase-strings.xml" target="res/values/cordova-plugin-firebase-strings.xml" />
+		<resource-file src="src/android/colors.xml" target="res/values/colors.xml" />
 		<source-file src="src/android/FirebasePlugin.java" target-dir="src/org/apache/cordova/firebase" />
 		<source-file src="src/android/OnNotificationOpenReceiver.java" target-dir="src/org/apache/cordova/firebase" />
 		<source-file src="src/android/OnNotificationReceiverActivity.java" target-dir="src/org/apache/cordova/firebase" />
